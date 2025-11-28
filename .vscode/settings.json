@@ -60,6 +60,8 @@
     "initializer_list": "cpp",
     "semaphore": "cpp",
     "stop_token": "cpp",
-    "thread": "cpp"
+    "thread": "cpp",
+    "list": "cpp",
+    "fstream": "cpp"
   }
 }

@@ -273,10 +273,140 @@ bool DatabaseManager::rollbackTransaction() {
 // 特定功能的安全查询方法
 json DatabaseManager::authenticateUser(const string& username, const string& password) {
     vector<string> params = {username, password};
-    string query = "SELECT * FROM user WHERE username = ? AND password = ?";
-    return executeQuery(query, params);
-}
+    json queryJson = executeQuery("SELECT * FROM user WHERE username = ? AND password = ?", params);
+    
+    json result;
+    try{
+        if(!queryJson.empty()&&queryJson.is_array())
+        {
+            json userInfo=queryJson[0];
+            json filterUser;
+            filterUser["id"]=userInfo.value("id",0);
+            filterUser["username"]=userInfo.value("username","");
+            filterUser["realName"]=userInfo.value("realName","");
+            filterUser["role"]=userInfo.value("role","");
 
+            result["success"]=true;
+            result["user"]=filterUser;
+        }else{
+            result["success"]=false;
+            result["message"]="用户名或密码错误";
+        }
+    }catch(const exception& e){
+        result["success"]=false;
+        result["message"]="认证过程中发生错误: "+string(e.what());
+    }
+    return result;
+}
+bool DatabaseManager::batchImportStudents(const vector<json>& students, std::function<void(int, const string&)> progress_callback) {
+    // 检查连接
+    if (!isConnected()) {
+        cerr << "数据库未连接" << endl;
+        return false;
+    }
+    
+    int total_count = students.size();
+    int processed_count = 0;
+    int success_count = 0;
+    int error_count = 0;
+    
+    // 开始事务
+    if (!beginTransaction()) {
+        cerr << "开始事务失败" << endl;
+        progress_callback(-1, "事务开始失败");
+        return false;
+    }
+    
+    try {
+        // 准备插入语句
+        string insert_query = "INSERT INTO studentinfo (name, number, sex, nation, political, birthData, birthPlace, idCard, "
+                          "province, city, university, college, profession, status, dataOfAdmission, dataOfGraduation, "
+                          "homeAddress, phone, socialStatus, blood, eye, skin, fatherName, fatherWork, motherName, motherWork, "
+                          "parentOtherInformation, photo, otherInterest) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        for (const auto& student : students) {
+            try {
+                vector<string> params = {
+                    student.value("name", ""),
+                    student.value("number", ""),
+                    student.value("sex", ""),
+                    student.value("nation", ""),
+                    student.value("political", ""),
+                    student.value("birthData", ""),
+                    student.value("birthPlace", ""),
+                    student.value("idCard", ""),
+                    student.value("province", ""),
+                    student.value("city", ""),
+                    student.value("university", ""),
+                    student.value("college", ""),
+                    student.value("profession", ""),
+                    student.value("status", ""),
+                    student.value("dataOfAdmission", ""),
+                    student.value("dataOfGraduation", ""),
+                    student.value("homeAddress", ""),
+                    student.value("phone", ""),
+                    student.value("socialStatus", ""),
+                    student.value("blood", ""),
+                    student.value("eye", ""),
+                    student.value("skin", ""),
+                    student.value("fatherName", ""),
+                    student.value("fatherWork", ""),
+                    student.value("motherName", ""),
+                    student.value("motherWork", ""),
+                    student.value("parentOtherInformation", ""),
+                    student.value("photo", ""),
+                    student.value("otherInterest", "")
+                };
+                
+                int rows = executeUpdate(insert_query, params);
+                if (rows > 0) {
+                    success_count++;
+                } else {
+                    error_count++;
+                }
+                
+            } catch (const exception& e) {
+                cerr << "处理学生数据时出错: " << e.what() << endl;
+                error_count++;
+            }
+            
+            // 更新处理计数
+            processed_count++;
+            
+            // 每处理1%或每10条记录更新一次进度
+            if (processed_count % 10 == 0 || (total_count > 100 && processed_count % (total_count / 100) == 0)) {
+                int progress = (processed_count * 100) / total_count;
+                string message = "已处理 " + to_string(processed_count) + "/" + to_string(total_count) + " 条记录，成功 " + to_string(success_count) + " 条";
+                progress_callback(progress, message);
+            }
+            
+            // 每处理100条记录，短暂休息避免数据库压力过大
+            if (processed_count % 100 == 0) {
+                this_thread::sleep_for(chrono::milliseconds(50));
+            }
+        }
+        
+        // 提交事务
+        if (!commitTransaction()) {
+            cerr << "提交事务失败" << endl;
+            progress_callback(-1, "事务提交失败");
+            return false;
+        }
+        
+        // 最后更新一次进度
+        string final_message = "导入完成: 成功 " + to_string(success_count) + " 条，失败 " + to_string(error_count) + " 条";
+        progress_callback(100, final_message);
+        
+        return success_count > 0;
+        
+    } catch (const exception& e) {
+        // 发生异常时回滚事务
+        rollbackTransaction();
+        cerr << "批量导入异常: " << e.what() << endl;
+        progress_callback(-1, "批量导入过程中发生错误: " + string(e.what()));
+        return false;
+    }
+}
 json DatabaseManager::getUserPermissions(const string& username) {
     vector<string> params = {username};
     string query = "SELECT * FROM user WHERE username = ?";

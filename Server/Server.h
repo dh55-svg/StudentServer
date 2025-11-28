@@ -3,10 +3,11 @@
 #include "business_handler.h"
 #include "connection_handler.h"
 #include "reliable_msg_manager.h"
-
+#include "EnhancedBussinessHandler.h"
 // 服务器类，封装所有服务器功能
 class Server {
 private:
+EnhancedBusinessHandler* enhanced_business_handler_; // 添加EnhancedBussinessHandler指针
     BusinessHandler business_handler_;          // 业务处理器
     ConnectionHandler* connection_handler_;     // 连接处理器
     ReliableMsgManager* reliable_msg_manager_;  // 可靠消息管理器

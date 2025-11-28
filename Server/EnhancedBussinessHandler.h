@@ -2,6 +2,7 @@
 #include "business_handler.h"
 #include "UserService.h"
 #include "studentService.h"
+
 #include <functional>
 
 class EnhancedBusinessHandler {
@@ -24,6 +25,12 @@ private:
     void handleUpdateUser(int conn_id, MyProtoMsg& msg, MyProtoMsg& response);
     void handleDeleteUser(int conn_id, MyProtoMsg& msg, MyProtoMsg& response);
     void handleGetAllUsers(int conn_id, MyProtoMsg& msg, MyProtoMsg& response);
+    void handleBatchImportStudents(int conn_id, MyProtoMsg& msg, MyProtoMsg& response)
+    // 异步任务相关处理函数
+    void handleSubmitLongTask(int conn_id, MyProtoMsg& msg, MyProtoMsg& response);
+    void handleGetTaskStatus(int conn_id, MyProtoMsg& msg, MyProtoMsg& response);
+    void handleCancelTask(int conn_id, MyProtoMsg& msg, MyProtoMsg& response);
+    void handleBatchProcessStudents(int conn_id, MyProtoMsg& msg, MyProtoMsg& response);
     
     // 辅助方法
     nlohmann::json parseRequestBody(const MyProtoMsg& msg);
@@ -35,7 +42,10 @@ private:
 public:
     static EnhancedBusinessHandler* getInstance();
     ~EnhancedBusinessHandler();
-    
+     // 获取内部的BusinessHandler指针
+    BusinessHandler* getBusinessHandler() {
+        return businessHandler;
+    }
     // 初始化并注册所有处理器
     void initialize(BusinessHandler* handler);
     

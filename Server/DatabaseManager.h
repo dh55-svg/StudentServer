@@ -14,6 +14,8 @@ private:
   bool initializeConnection(const string& host,const string& user,const string& password,const string& database);
   static mutex mutex_;
 public:
+// 批量导入学生数据，带有进度回调
+  bool batchImportStudents(const vector<json>& students, std::function<void(int, const string&)> progress_callback);
   static DatabaseManager*getInstance();
   ~DatabaseManager();
   bool connect(const std::string& host = "localhost", const std::string& user = "root", 

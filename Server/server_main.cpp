@@ -1,11 +1,17 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <hv/hlog.h>
 #include "Server.h"
 
 // 主函数
 int main(int argc, char* argv[]) {
-    std::cout << "学生管理系统服务器启动..." << std::endl;
+    hlog_set_level(LOG_LEVEL_INFO);
+    hlog_set_file("/var/log/student_manager_server.log");
+    hlog_set_remain_days(7); // 设置日志文件保留7天
+    
+    hlogi("学生管理系统服务器启动..."); // 使用libhv日志替代std::cout
+
     
     // 创建服务器实例
     Server server;

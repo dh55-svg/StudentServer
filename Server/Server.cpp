@@ -15,6 +15,7 @@ Server::~Server() {
     }
 }
 
+// 在initialize方法中添加初始化代码
 bool Server::initialize(const std::string& db_host, const std::string& db_user,
                        const std::string& db_password, const std::string& db_name) {
     std::cout << "服务器初始化中..." << std::endl;
@@ -24,8 +25,8 @@ bool Server::initialize(const std::string& db_host, const std::string& db_user,
         return false;
     }
 
-    // 注册消息处理器
-    registerMessageHandlers();
+    enhanced_business_handler_ = EnhancedBusinessHandler::getInstance();
+    enhanced_business_handler_->initialize(&business_handler_);
 
     // 创建可靠消息管理器
     reliable_msg_manager_ = new ReliableMsgManager(3, 2000); // 最大3次重传，2秒间隔
@@ -53,24 +54,13 @@ bool Server::start(int port) {
     }
 
     // 初始化连接处理器
-    if (!connection_handler_->initialize(&business_handler_, reliable_msg_manager_)) {
+    if (!connection_handler_->initialize(enhanced_business_handler_->getBusinessHandler(), reliable_msg_manager_)) {
         std::cerr << "连接处理器初始化失败" << std::endl;
         return false;
     }
 
-    // 设置事件循环到可靠消息管理器
-    reliable_msg_manager_->setEventLoop(connection_handler_->getEventLoop());
-    
-    // 设置重传回调
-    reliable_msg_manager_->setRetransmitCallback([](int conn_id, const MyProtoMsg& msg) {
-        ConnectionHandler::getInstance()->sendMessage(conn_id, const_cast<MyProtoMsg&>(msg));
-    });
-
-    // 启动超时检测
-    reliable_msg_manager_->startTimeoutCheck();
-
     // 设置心跳配置
-    connection_handler_->setHeartbeatConfig(30000, 60000); // 30秒心跳，60秒超时
+    connection_handler_->setHeartbeatConfig(3000, 60000); // 3秒心跳，60秒超时
 
     // 启动服务器
     if (!connection_handler_->startServer(port)) {
@@ -122,18 +112,7 @@ bool Server::initializeDatabase(const std::string& host, const std::string& user
 }
 
 void Server::registerMessageHandlers() {
-    // 登录请求
-    business_handler_.registerHandler(1001, handleLoginRequest);
     
-    // 学生管理相关
-    business_handler_.registerHandler(2001, handleGetStudentList);
-    business_handler_.registerHandler(2002, handleGetStudentDetail);
-    business_handler_.registerHandler(2003, handleAddStudent);
-    business_handler_.registerHandler(2004, handleUpdateStudent);
-    business_handler_.registerHandler(2005, handleDeleteStudent);
-    
-    // 心跳请求
-    business_handler_.registerHandler(9001, handleHeartbeatRequest);
     
     std::cout << "所有消息处理器注册完成" << std::endl;
 }
@@ -152,7 +131,7 @@ void Server::handleLoginRequest(int conn_id, const MyProtoMsg& request, MyProtoM
             json permissions = dbManager->getUserPermissions(username);
             response.body["status"] = "success";
             response.body["message"] = "登录成功";
-            response.body["user"] = result["user"];
+            response.body["user"] = result["user"]["username"];
             response.body["permissions"] = permissions;
         } else {
             response.body["status"] = "error";
